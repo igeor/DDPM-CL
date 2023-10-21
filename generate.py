@@ -6,29 +6,9 @@ from diffusers import DDPMScheduler
 from accelerate import Accelerator
 from diffusers import DDPMPipeline
 from diffusers.utils import make_image_grid
+from train_config import TrainingConfig
 
-@dataclass
-class TrainingConfig:
-    device = "cuda"
-    dataset_name = "mnist"
-    labels = [2]
-    image_size = 32  # the generated image resolution
-    train_batch_size = 128
-    eval_batch_size = 128  # how many images to sample during evaluation
-    num_epochs = 50
-    gradient_accumulation_steps = 1
-    learning_rate = 1e-4
-    lr_warmup_steps = 500
-    save_image_epochs = 10
-    save_model_epochs = 10
-    mixed_precision = "fp16"  # `no` for float32, `fp16` for automatic mixed precision
-    output_dir = "ddpm-mnist2s-32"  # the model name locally and on the HF Hub
-
-    push_to_hub = False  # whether to upload the saved model to the HF Hub
-    hub_private_repo = False
-    overwrite_output_dir = True  # overwrite the old model when re-running the notebook
-    seed = 0
-
+# Initialize the training config
 config = TrainingConfig()
 
 """ *** DATASETS *** """
