@@ -231,7 +231,7 @@ def train_loop(config, model, noise_scheduler, optimizer, train_dataloader, lr_s
                 if config.push_to_hub:
                     repo.push_to_hub(commit_message=f"Epoch {epoch}", blocking=True)
                 else:
-                    pipeline.save_pretrained(f'{config.output_dir}/{epoch}')
+                    pipeline.save_pretrained(f'{config.output_dir}/epoch-{epoch}')
 
 from accelerate import notebook_launcher
 
