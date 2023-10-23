@@ -11,11 +11,11 @@ from tqdm.auto import tqdm
 from pathlib import Path
 from diffusers import DDPMPipeline
 from diffusers.utils import make_image_grid
-from train_config import TrainingConfig
+from config import TrainingConfig
 
-
-# Initialize the training config
+# Initialize the config
 config = TrainingConfig()
+
 # Load the dataset
 train_dataset = load_dataset(config.dataset_name, split="train")
 # Define the preprocessing function
@@ -215,12 +215,14 @@ def train_loop(config, model, noise_scheduler, optimizer, train_dataloader, lr_s
 
         # Sample some demo images with evaluate() and save the model
         if accelerator.is_main_process:
+
             # Initialize the pipeline
             pipeline = DDPMPipeline(
                 unet=accelerator.unwrap_model(model), 
                 scheduler=noise_scheduler, 
                 show_progress=config.show_gen_progress
             )
+
             # Evaluate the model 
             if (epoch + 1) % config.save_image_epochs == 0 or epoch == config.num_epochs - 1:
                 evaluate(config, epoch, pipeline)
@@ -229,7 +231,7 @@ def train_loop(config, model, noise_scheduler, optimizer, train_dataloader, lr_s
                 if config.push_to_hub:
                     repo.push_to_hub(commit_message=f"Epoch {epoch}", blocking=True)
                 else:
-                    pipeline.save_pretrained(config.output_dir)
+                    pipeline.save_pretrained(f'{config.output_dir}/{epoch}')
 
 from accelerate import notebook_launcher
 

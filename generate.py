@@ -6,9 +6,9 @@ from diffusers import DDPMScheduler
 from accelerate import Accelerator
 from diffusers import DDPMPipeline
 from diffusers.utils import make_image_grid
-from train_config import TrainingConfig
+from config import TrainingConfig
 
-# Initialize the training config
+# Initialize the config
 config = TrainingConfig()
 
 """ *** DATASETS *** """
