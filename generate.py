@@ -1,93 +1,38 @@
 import os
-import torch
-from dataclasses import dataclass
-from torchvision import transforms
-from diffusers import DDPMScheduler
-from accelerate import Accelerator
-from diffusers import DDPMPipeline
-from diffusers.utils import make_image_grid
-from config import TrainingConfig
+from tqdm import tqdm
+from config import GenerateConfig
+from diffusers import DDPMScheduler, DDPMPipeline, UNet2DModel
 
 # Initialize the config
-config = TrainingConfig()
+config = GenerateConfig()
 
-""" *** DATASETS *** """
-from datasets import load_dataset
+# Load the UNet model 
+model = UNet2DModel.from_pretrained(f'./{config.pretrained_model_dir}', subfolder="unet").to(config.device)
 
-test_dataset = load_dataset(config.dataset_name, split="test")
+# Load the noise scheduler
+noise_scheduler = DDPMScheduler.from_pretrained(f'./{config.pretrained_model_dir}', subfolder='scheduler')
 
-preprocess = transforms.Compose([
-    transforms.Resize((config.image_size, config.image_size)),
-    # transforms.RandomHorizontalFlip(), # Remove Horizontal Flip (MNIST is symmetric)
-    transforms.ToTensor(),
-    transforms.Normalize([0.5], [0.5]), # Convert images from (0,1) to (-1, 1)
-])
+# Load the DDPM pipeline
+pipeline = DDPMPipeline(unet=model, scheduler=noise_scheduler, show_progress=False)
 
-# convert image back to (0, 1) range
-def postprocess(images_tensor): 
-    return (images_tensor + 1) / 2
+# Create output folder if it doesn't exist
+output_dir = os.path.join(config.output_dir, config.folder_name)
+if not os.path.exists(output_dir): os.makedirs(output_dir)
 
-def transform(examples):
-    images = [preprocess(image.convert("RGB")) for image in examples["image"]]
-    return {"image": images, "label": examples["label"]}
+# Initialize tqdm bar
+pbar = tqdm(total=config.n_images_to_generate, desc="Generating...")
 
-def filter_dataset(dataset, labels):
-    return dataset.filter(lambda example: example["label"] in labels)
-
-test_dataset.set_transform(transform)
-
-if config.labels is not None:
-    test_dataset = filter_dataset(test_dataset, config.labels)
-
-test_dataloader = torch.utils.data.DataLoader(
-    test_dataset, batch_size=config.eval_batch_size, shuffle=False)
-
-
-""" *** Diffusion Model *** """
-from diffusers import UNet2DModel
-model = UNet2DModel.from_pretrained(f'./{config.output_dir}', subfolder="unet", use_safetensors=True)
-model = model.to(config.device)
-
-noise_scheduler = DDPMScheduler.from_pretrained(f'./{config.output_dir}', subfolder='scheduler', use_safetensors=True)
-
-""" *** Evaluation *** """
-def evaluate(config, pipeline, folder='fake_images'):
-    # Create output folder if it doesn't exist
-    if not os.path.exists(os.path.join(config.output_dir, folder)):
-        os.makedirs(os.path.join(config.output_dir, folder))
-
-    # Sample fake images from random noise 
-    # Inverse Diffusion Process
+# Generate images in batches
+for b_idx in range(0, config.n_images_to_generate, config.eval_batch_size):
+    # (Inverse Diffusion Process) Sample fake images from random noise 
     # The default pipeline output type is `List[PIL.Image]`
-    images = pipeline(
-        batch_size=config.eval_batch_size,
-        generator=torch.manual_seed(config.seed),
-    ).images
+    images = pipeline(batch_size=config.eval_batch_size).images
 
     # Save the images to the output_dir
-    output_dir = os.path.join(config.output_dir, folder)
-    # count the images in the folder
-    n_images = len(os.listdir(output_dir))
     for image_idx, image in enumerate(images):
-        image.save(f"{config.output_dir}/{folder}/{n_images + image_idx}.png")
+        image.save(f"{config.output_dir}/{config.folder_name}/{b_idx + image_idx}.png")
 
-    # Return the number of images
-    return len(images)
+    # Update tqdm bar
+    pbar.update(config.eval_batch_size)
 
-
-# Initialize accelerator and tensorboard logging
-accelerator = Accelerator(
-    mixed_precision=config.mixed_precision,
-    gradient_accumulation_steps=config.gradient_accumulation_steps,
-    log_with="tensorboard",
-    project_dir=os.path.join(config.output_dir, "logs"),
-)
-
-pipeline = DDPMPipeline(unet=accelerator.unwrap_model(model), scheduler=noise_scheduler)
-
-# Generate fake images
-n_fake_images = 0
-while n_fake_images < len(test_dataset):
-    n_images = evaluate(config, pipeline, folder='fake_images')
-    # Update the number of fake images
-    n_fake_images += n_images
+        
