@@ -11,35 +11,17 @@ from tqdm.auto import tqdm
 from pathlib import Path
 from diffusers import DDPMPipeline
 from diffusers.utils import make_image_grid
+from dataset import init_dataset
 from config import TrainingConfig
 
 # Initialize the config
 config = TrainingConfig()
 
-# Load the dataset
-train_dataset = load_dataset(config.dataset_name, split="train")
-# Define the preprocessing function
-preprocess = transforms.Compose([
-    transforms.Resize((config.image_size, config.image_size)),
-    transforms.ToTensor(),
-    transforms.Normalize([0.5], [0.5]), # Convert images from (0,1) to (-1, 1)
-])
-# Define the transform function to apply to the dataset
-def transform(examples):
-    images = [preprocess(image.convert("RGB")) for image in examples["image"]]
-    return {"image": images, "label": examples["label"]}
+# Save the images
+eval_dir = os.path.join(config.output_dir, "samples")
+os.makedirs(eval_dir, exist_ok=True)
 
-# Define a function to filter the dataset by labels
-def filter_dataset(dataset, labels):
-    return dataset.filter(lambda example: example["label"] in labels)
-                          
-# Apply the transform function to the dataset
-train_dataset.set_transform(transform)
-
-# Filter the dataset by labels
-if config.labels is not None:
-    train_dataset = filter_dataset(train_dataset, config.labels)
-
+train_dataset = init_dataset(config.dataset_name, split='train', labels=config.labels)
 print(f"Number of training examples: {len(train_dataset)}")
 
 # Initialize the training dataloader
@@ -58,12 +40,12 @@ model = UNet2DModel(
         "DownBlock2D",
         "DownBlock2D",
         "DownBlock2D",
-        "AttnDownBlock2D",  # a ResNet downsampling block with spatial self-attention
+        "AttnDownBlock2D",  # a ResNet downsampling block with an attention layer
         "DownBlock2D",
     ),
     up_block_types=(
         "UpBlock2D",  # a regular ResNet upsampling block
-        "AttnUpBlock2D",  # a ResNet upsampling block with spatial self-attention
+        "AttnUpBlock2D",  # a ResNet downsampling block with an attention layer
         "UpBlock2D",
         "UpBlock2D",
         "UpBlock2D",
@@ -97,39 +79,6 @@ lr_scheduler = get_cosine_schedule_with_warmup(
     num_training_steps=(len(train_dataloader) * config.num_epochs),
 )
 
-def evaluate(config, epoch, pipeline):
-    # Sample some images from random noise (this is the backward diffusion process).
-    # The default pipeline output type is `List[PIL.Image]`
-    images = pipeline(
-        batch_size=config.eval_batch_size,
-        generator=torch.manual_seed(config.seed),
-    ).images
-    
-    # If num of images is less than 16 then repeat the last image
-    if len(images) < 16: images = images + [images[-1]] * (16 - len(images))
-    # Make a grid out of the images
-    image_grid = make_image_grid(
-        images[:16], rows=4, cols=4
-    )
-
-    # Save the images
-    test_dir = os.path.join(config.output_dir, "samples")
-    os.makedirs(test_dir, exist_ok=True)
-    image_grid.save(f"{test_dir}/{epoch}.png")
-
-    # convert images to a torch tensor
-    images = torch.stack([transforms.ToTensor()(image) for image in images])
-    return images 
-
-# Define a function to get the full repo name
-def get_full_repo_name(model_id: str, organization: str = None, token: str = None):
-    if token is None:
-        token = HfFolder.get_token()
-    if organization is None:
-        username = whoami(token)["name"]
-        return f"{username}/{model_id}"
-    else:
-        return f"{organization}/{model_id}"
 
 # Define the training loop
 def train_loop(config, model, noise_scheduler, optimizer, train_dataloader, lr_scheduler):
@@ -143,10 +92,7 @@ def train_loop(config, model, noise_scheduler, optimizer, train_dataloader, lr_s
 
     # Initialize the repository
     if accelerator.is_main_process:
-        if config.push_to_hub:
-            repo_name = get_full_repo_name(Path(config.output_dir).name)
-            repo = Repository(config.output_dir, clone_from=repo_name)
-        elif config.output_dir is not None:
+        if config.output_dir is not None:
             os.makedirs(config.output_dir, exist_ok=True)
         accelerator.init_trackers("train_example")
 
@@ -225,13 +171,18 @@ def train_loop(config, model, noise_scheduler, optimizer, train_dataloader, lr_s
 
             # Evaluate the model 
             if (epoch + 1) % config.save_image_epochs == 0 or epoch == config.num_epochs - 1:
-                evaluate(config, epoch, pipeline)
+                # Generate sample images
+                images = pipeline(
+                    batch_size=config.eval_batch_size,
+                    generator=torch.manual_seed(config.seed),
+                ).images
+                
+                image_grid = make_image_grid(images[:16], rows=4, cols=4)
+                image_grid.save(f"{eval_dir}/{epoch}.png")
+
             # Save the model
             if (epoch + 1) % config.save_model_epochs == 0 or epoch == config.num_epochs - 1:
-                if config.push_to_hub:
-                    repo.push_to_hub(commit_message=f"Epoch {epoch}", blocking=True)
-                else:
-                    pipeline.save_pretrained(f'{config.output_dir}/epoch-{epoch}')
+                pipeline.save_pretrained(f'{config.output_dir}/epoch-{epoch}')
 
 from accelerate import notebook_launcher
 
