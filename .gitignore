@@ -1,8 +1,6 @@
 __pycache__/
 dataset/
 dmenv/
-experiments/
 results/
-mnist_classifier.ipynb
-pipeline.ipynb
 nohup.out
+run.py
