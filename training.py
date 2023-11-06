@@ -124,7 +124,7 @@ def train_loop(config, model, noise_scheduler, optimizer, train_dataloader, lr_s
     global_step = 0
 
     # Initialize tqdm progress bar
-    progress_bar = tqdm(range(config.num_epochs), desc="Epoch 0 | loss: 0.000 | lr: 0.000e+00")
+    progress_bar = tqdm(range(config.num_epochs), desc="Epoch 1 | loss: 0.000 | lr: 0.000e+00")
 
     # Now you train the model
     for epoch in range(config.num_epochs):
@@ -171,7 +171,7 @@ def train_loop(config, model, noise_scheduler, optimizer, train_dataloader, lr_s
             global_step += 1
         
             # Update description of the progress bar
-            progress_bar.set_description(f"Epoch {epoch} | loss: {loss.item():.3f} | lr: {lr_scheduler.get_last_lr()[0]:.3e}")
+            progress_bar.set_description(f"Epoch {epoch + 1} | loss: {loss.item():.3f} | lr: {lr_scheduler.get_last_lr()[0]:.3e}")
 
         # Update progress bar
         progress_bar.update(1)
