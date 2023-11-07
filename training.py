@@ -9,7 +9,7 @@ from diffusers.utils import make_image_grid
 from diffusers import UNet2DModel, DDPMScheduler, DDPMPipeline, DDIMPipeline
 from diffusers.optimization import get_cosine_schedule_with_warmup
 
-from dataset import init_dataset, init_v2_dataset
+from dataset import init_dataset
 
 def list_of_strings(arg): return arg.split(',')
 def list_of_ints(arg): return [int(x) for x in arg.split(',')]
@@ -17,7 +17,8 @@ def list_of_ints(arg): return [int(x) for x in arg.split(',')]
 # Create an argument parser
 parser = argparse.ArgumentParser()
 parser.add_argument("--device", default="cuda", help="Device to use (e.g., 'cuda' or 'cpu')")
-parser.add_argument("--dataset_name", default="~/.pytorch/MNIST_data/", help="Dataset name")
+parser.add_argument("--dataset_name", default=None, help="Dataset name")
+parser.add_argument("--dataset_path", default=None, help="Dataset path")
 parser.add_argument("--pipeline", default="ddim", help="The pipeline type, 'ddpm' or 'ddim'")
 parser.add_argument("--pretrained_model_dir", default="No", help="Path to the pretrained model directory")
 parser.add_argument("--labels", type=list_of_ints, default=[2], help="Labels to train on")
@@ -50,10 +51,15 @@ preprocess = transforms.Compose([
     transforms.Normalize([0.5], [0.5]), # Convert images from (0,1) to (-1, 1)
 ])
 
-train_dataloader = torch.utils.data.DataLoader(
-    init_v2_dataset(args.dataset_name, split=args.train_on, preprocess=preprocess, labels=args.labels), 
-    batch_size=args.train_batch_size, shuffle=True)
-
+if args.dataset_path is not None:
+    train_dataloader = torch.utils.data.DataLoader(
+        init_dataset(dataset_path=args.dataset_path, split=args.train_on, preprocess=preprocess, labels=args.labels), 
+        batch_size=args.train_batch_size, shuffle=True)
+else:
+    train_dataloader = torch.utils.data.DataLoader(
+        init_dataset(dataset_name=args.dataset_name, split=args.train_on, preprocess=preprocess, labels=args.labels), 
+        batch_size=args.train_batch_size, shuffle=True)
+    
 # Define the UNet model
 model = UNet2DModel(
     sample_size=args.image_size,  # the target image resolution
@@ -100,19 +106,19 @@ lr_scheduler = get_cosine_schedule_with_warmup(
 )
 
 # Define the training loop
-def train_loop(config, model, noise_scheduler, optimizer, train_dataloader, lr_scheduler):
+def train_loop(model, noise_scheduler, optimizer, train_dataloader, lr_scheduler):
     # Initialize accelerator and tensorboard logging
     accelerator = Accelerator(
-        mixed_precision=config.mixed_precision,
-        gradient_accumulation_steps=config.gradient_accumulation_steps,
+        mixed_precision=args.mixed_precision,
+        gradient_accumulation_steps=args.gradient_accumulation_steps,
         log_with="tensorboard",
-        project_dir=os.path.join(config.output_dir, "logs"),
+        project_dir=os.path.join(args.output_dir, "logs"),
     )
 
     # Initialize the repository
     if accelerator.is_main_process:
-        if config.output_dir is not None:
-            os.makedirs(config.output_dir, exist_ok=True)
+        if args.output_dir is not None:
+            os.makedirs(args.output_dir, exist_ok=True)
         accelerator.init_trackers("train_log")
 
     # Prepare the model, optimizer, and dataloader
@@ -124,12 +130,12 @@ def train_loop(config, model, noise_scheduler, optimizer, train_dataloader, lr_s
     global_step = 0
 
     # Initialize tqdm progress bar
-    progress_bar = tqdm(range(config.num_epochs), desc="Epoch 1 | loss: 0.000 | lr: 0.000e+00")
+    progress_bar = tqdm(range(args.num_epochs), desc="Epoch 1 | loss: 0.000 | lr: 0.000e+00")
 
     # Now you train the model
-    for epoch in range(config.num_epochs):
+    for epoch in range(args.num_epochs):
 
-        for step, (clean_images, _) in enumerate(train_dataloader):
+        for clean_images, _ in train_dataloader:
 
             # Sample gaussian noise 
             noise = torch.randn(clean_images.shape).to(accelerator.device)
@@ -145,7 +151,7 @@ def train_loop(config, model, noise_scheduler, optimizer, train_dataloader, lr_s
             # Forward Diffusion Process
             # Add noise to the clean images according to the noise magnitude at each timestep
             noisy_images = noise_scheduler.add_noise(clean_images, noise, timesteps)
-
+            
             # Backward Diffusion Process
             with accelerator.accumulate(model):
                 # Predict the noise residual
@@ -180,53 +186,30 @@ def train_loop(config, model, noise_scheduler, optimizer, train_dataloader, lr_s
         if accelerator.is_main_process:
 
             # Evaluate the model 
-            if (epoch + 1) % config.save_image_epochs == 0 or epoch == config.num_epochs - 1:
+            if (epoch + 1) % args.save_image_epochs == 0 or epoch == args.num_epochs - 1:
                 
                 # Initialize the pipeline
                 pipeline = DDIMPipeline(unet=accelerator.unwrap_model(model), scheduler=noise_scheduler)
-                if config.pipeline == "ddpm":
+                if args.pipeline == "ddpm":
                     pipeline = DDPMPipeline(unet=accelerator.unwrap_model(model), scheduler=noise_scheduler)
                 # Set progress false
                 pipeline.set_progress_bar_config(disable=True)
                 
                 # Generate sample images
                 images = pipeline(
-                    batch_size=config.eval_batch_size,
-                    generator=torch.manual_seed(config.gen_seed),
+                    batch_size=args.eval_batch_size,
+                    generator=torch.manual_seed(args.gen_seed),
                 ).images
                 
                 image_grid = make_image_grid(images[:16], rows=4, cols=4)
                 image_grid.save(f"{eval_dir}/{epoch + 1}.png")
 
             # Save the model
-            if (epoch + 1) % config.save_model_epochs == 0 or epoch == config.num_epochs - 1:
-                pipeline.save_pretrained(f'{config.output_dir}/epoch-{epoch + 1}')
+            if (epoch + 1) % args.save_model_epochs == 0 or epoch == args.num_epochs - 1:
+                pipeline.save_pretrained(f'{args.output_dir}/epoch-{epoch + 1}')
 
-
-# Create a dataclass config 
-config = argparse.Namespace(
-    device=args.device,
-    dataset_name=args.dataset_name,
-    pipeline=args.pipeline,
-    pretrained_model_dir=args.pretrained_model_dir,
-    labels=args.labels,
-    image_size=args.image_size,
-    train_batch_size=args.train_batch_size,
-    eval_batch_size=args.eval_batch_size,
-    num_epochs=args.num_epochs,
-    gradient_accumulation_steps=args.gradient_accumulation_steps,
-    learning_rate=args.learning_rate,
-    lr_warmup_steps=args.lr_warmup_steps,
-    save_image_epochs=args.save_image_epochs,
-    save_model_epochs=args.save_model_epochs,
-    mixed_precision=args.mixed_precision,
-    output_dir=args.output_dir,
-    gen_seed=args.gen_seed,
-)
-
-args = (config, model, noise_scheduler, optimizer, train_dataloader, lr_scheduler)
-
-notebook_launcher(train_loop, args, num_processes=1)
+# Run the training loop
+train_loop(model, noise_scheduler, optimizer, train_dataloader, lr_scheduler)
 
 # See results:
 # tensorboard --logdir path/to/your/logs (i.e. results/unetSM/mnist/logs)
