@@ -36,8 +36,9 @@ pipeline.set_progress_bar_config(disable=not args.show_gen_progress)
 # Initialize output folder
 output_dir = os.path.join(args.pretrained_model_dir, args.folder_name)
 # Create output folder if it doesn't exist
-if not os.path.exists(output_dir):
-    os.makedirs(output_dir)
+os.makedirs(output_dir, exist_ok=True)
+# List the files in the output folder
+num_exist_images = len(os.listdir(output_dir))
 
 # Initialize tqdm bar
 pbar = tqdm(total=args.n_images_to_generate, desc="Generating...")
@@ -53,7 +54,7 @@ for b_idx in range(0, args.n_images_to_generate, args.eval_batch_size):
 
     # Save the images to the output_dir
     for image_idx, image in enumerate(images):
-        image.save(f"{output_dir}/{b_idx + image_idx}.png")
+        image.save(f"{output_dir}/{num_exist_images+ b_idx + image_idx}.png")
 
     # Update tqdm bar
     pbar.update(args.eval_batch_size)
