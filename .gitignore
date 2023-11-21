@@ -2,7 +2,7 @@ __pycache__/
 dataset/
 dmenv/
 results/
-nohup.out
+logs/
 run.py
 exp.ipynb
 pipelines.py
