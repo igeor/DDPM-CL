@@ -15,7 +15,7 @@ from torch.utils.data.dataset import Subset
 def init_dataset(
         dataset_name, 
         dataset_path=None, 
-        store_path='./data',
+        target_dir='./data', # Default target directory if dataset_path is None
         preprocess=None, 
         labels=None
     ):
@@ -34,23 +34,21 @@ def init_dataset(
     if dataset_path:
         full_trainset = DatasetClass(dataset_path, download=False, train=True, transform=preprocess)
     else:
-        full_trainset = DatasetClass(root=store_path, download=True, train=True, transform=preprocess)
+        full_trainset = DatasetClass(root=target_dir, download=True, train=True, transform=preprocess)
 
     # Filter the data to only include images with the corresponding labels
     if labels is None: labels = list(range(len(set(full_trainset.targets))))
     indices = torch.tensor([label in labels for label in full_trainset.targets])
     trainset = torch.utils.data.Subset(full_trainset, indices.nonzero().squeeze().tolist())
-    print(f'Number of training images: {len(trainset)}')
-    
 
     if dataset_path:
         full_testset = DatasetClass(dataset_path, download=False, train=False, transform=preprocess)
     else:
-        full_testset = DatasetClass(root=store_path, download=True, train=False, transform=preprocess)
+        full_testset = DatasetClass(root=target_dir, download=True, train=False, transform=preprocess)
         
     # Filter the data to only include images with the corresponding labels
     indices = torch.tensor([label in labels for label in full_testset.targets])
     testset = torch.utils.data.Subset(full_testset, indices.nonzero().squeeze().tolist())
-    print(f'Number of test images: {len(testset)}')
+    print(f'Number of training images: {len(trainset)}, Number of test images: {len(testset)}')
 
     return trainset, testset
