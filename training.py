@@ -50,12 +50,15 @@ model = UNet2DModel(
     block_out_channels=args.block_out_channels,  # the number of output channels for each UNet block
     down_block_types=args.down_block_types,
     up_block_types=args.up_block_types
-).to(args.device)
+)
 
 # Load pretrained model if args.pretrained_model_dir is not None
 if args.pretrained_model_dir is not None:
     model = UNet2DModel.from_pretrained(
         args.pretrained_model_dir, subfolder="unet", use_safetensors=True)
+    
+# Move the model to the device
+model = model.to(args.device)
 
 # Define the optimizer 
 optimizer = torch.optim.AdamW(model.parameters(), lr=args.learning_rate)
@@ -119,15 +122,15 @@ for epoch in range(args.num_epochs):
         
         if args.mask:
             # Implementation with Masking (1)
-            cond_vector = torch.ones_like(noise)
-            mask = (torch.sum(noise * cond_vector, dim=(1, 2, 3)) > 0).float()
+            ones = torch.ones_like(noise)
+            mask = (torch.sum(noise * ones, dim=(1, 2, 3)) > 0).float()
             # Compute the Masked MSE loss
             loss = F.mse_loss(noise, noise_pred, reduction="none")
             loss = torch.mean(loss, dim=(1, 2, 3))
             loss = torch.mean(loss * mask)
 
             # # Implementation with Penalty (2)
-            # dot_product = torch.sum(noise_pred * cond_vector, dim=(1, 2, 3))
+            # dot_product = torch.sum(noise_pred * ones, dim=(1, 2, 3))
             # # Compute the penalty for negative dot products
             # penalty = torch.relu(-dot_product)
             # loss = F.mse_loss(noise, noise_pred)
