@@ -45,6 +45,10 @@ def get_preprocess_function(dataset_name, flip=False, rotate=False):
             transforms.ToTensor(),
             transforms.Normalize([0.5], [0.5]), # Convert images from (0,1) to (-1, 1)
         ])
+    elif dataset_name == 'EvalCifar10':
+        preprocess = transforms.Compose([
+            transforms.Resize((224), antialias=None),
+        ])
     else:
         raise NotImplementedError
 
