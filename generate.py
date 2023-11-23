@@ -6,11 +6,11 @@ from diffusers import DDPMScheduler, DDIMPipeline, DDPMPipeline, UNet2DModel
 
 # Create an argument parser
 parser = argparse.ArgumentParser()
-parser.add_argument("--device", default="cuda", help="Device to use (e.g., 'cuda' or 'cpu')")
+parser.add_argument("--device", default="cuda:2", help="Device to use (e.g., 'cuda' or 'cpu')")
 parser.add_argument("--pipeline", default="ddim", help="The pipeline type, 'ddpm' or 'ddim'")
 parser.add_argument("--num_inference_steps", type=int, default=100, help="The pipeline type, 'ddpm' or 'ddim'")
-parser.add_argument("--pretrained_model_dir", default="./results/unetXL/mnist", help="Path to the pretrained model directory")
-parser.add_argument("--n_images_to_generate", type=int, default=12000, help="Number of images to generate")
+parser.add_argument("--pretrained_model_dir", default="/datatmp/users/igeorvasilis/ddpm-continual-learning/results/cifar10/0n1/epoch-200", help="Path to the pretrained model directory")
+parser.add_argument("--n_images_to_generate", type=int, default=5_000, help="Number of images to generate")
 parser.add_argument("--eval_batch_size", type=int, default=64, help="Batch size for evaluation")
 parser.add_argument("--show_gen_progress", action="store_true", help="Show generation progress")
 parser.add_argument("--folder_name", default="ddim_fake_images", help="Output folder name")
