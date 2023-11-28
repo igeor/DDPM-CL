@@ -19,7 +19,8 @@ def parse_args():
     parser.add_argument("--beta_start", type=float, default=0.0001, help="Number of training timesteps")
     parser.add_argument("--beta_end", type=float, default=0.02, help="Number of training timesteps")
     parser.add_argument("--beta_schedule", default="squaredcos_cap_v2", help="Number of training timesteps")
-    parser.add_argument("--mask", action="store_true", help="Train with masked noise")
+    parser.add_argument("--mask", type=str, default=None, help="The type of the mask")
+    parser.add_argument("--num_tasks", type=int, default=None, help="The number of the tasks")
 
     parser.add_argument("--pipeline", default="ddim", help="The pipeline type, 'ddpm' or 'ddim'")
     parser.add_argument("--num_inference_steps", type=int, default=100, help="The pipeline type, 'ddpm' or 'ddim'")
