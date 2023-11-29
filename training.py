@@ -109,39 +109,6 @@ for epoch in range(args.num_epochs):
         # Sample noise to add to the images
         noise = torch.randn(clean_images.shape).to(args.device)
 
-        # # Latent Space Initialization (v2)
-        # # Sample task noise to add to the images
-        # if args.mask == "v2":
-        #     noise = get_task_noise(clean_images.shape, clean_images_labels).to(args.device)
-            
-        # # By default, the mask is a tensor of ones (default value is None)
-        # # This means that the loss is not affected by the mask
-        # mask = torch.ones(clean_images.shape[0]).to(args.device)
-        
-        # Latent Space Initialization (v1)
-        # Create a mask with 1 for the images of the batch
-        #  the condition is met and 0 otherwise
-        # if args.mask == "v1":
-            
-        #     # get the indices of clean_images_labels that are equal to 0 
-        #     task_0_idxs = torch.where(clean_images_labels == 0)[0]
-        #     noise_task_0 = noise[task_0_idxs]
-        #     ones_task_0 = torch.ones_like(noise_task_0)
-        #     # mask_0 = torch.sum(noise_task_0 * ones_task_0, dim=(1, 2, 3))
-        #     # mask_0 = torch.relu(mask_0) / mask_0
-        #     mask_0 = (torch.sum(noise_task_0 * ones_task_0, dim=(1, 2, 3)) > 0).float()
-
-        #     task_1_idxs = torch.where(clean_images_labels == 1)[0]
-        #     noise_task_1 = noise[task_1_idxs]
-        #     ones_task_1 = torch.ones_like(noise_task_1)
-        #     # mask_1 = - torch.sum(noise_task_1 * ones_task_1, dim=(1, 2, 3))
-        #     # mask_1 = torch.relu(mask_1) / mask_1
-        #     mask_1 = (torch.sum(noise_task_1 * ones_task_1, dim=(1, 2, 3)) < 0).float()
-
-        #     mask = torch.ones((bs, )).to(args.device)
-        #     mask[task_0_idxs] = mask_0
-        #     mask[task_1_idxs] = mask_1
-
         # Sample a random timestep for each image
         timesteps = torch.randint(
             0, noise_scheduler.config.num_train_timesteps, (bs,), device=args.device
@@ -155,13 +122,8 @@ for epoch in range(args.num_epochs):
         # Predict the noise residual
         noise_pred = model(noisy_images, timesteps, return_dict=False)[0]
         
+        # Compute the MSE loss between the predicted noise and the actual noise
         loss = F.mse_loss(noise, noise_pred)
-
-        # # If the mask is None (default), the loss is not affected by the mask
-        # # because the mask is a tensor of ones
-        # mse_loss = F.mse_loss(noise, noise_pred, reduction="none")
-        # mse_loss_per_batch = torch.mean(mse_loss, dim=(1, 2, 3))
-        # loss = torch.mean(mse_loss_per_batch * mask)
 
         # Backpropagate the loss
         loss.backward()
@@ -191,16 +153,9 @@ for epoch in range(args.num_epochs):
 
     # Evaluate the model 
     if (epoch + 1) % args.sample_image_epochs == 0:
-            
-        # Initialize the pipeline
-        if args.pipeline == "ddim":
-            pipeline = DDIMPipeline(unet=model, scheduler=noise_scheduler)
-        elif args.pipeline == "mddim":
-            pipeline = TaskDMPipeline(unet=model, scheduler=noise_scheduler, labels=args.labels)
-        else:
-            pipeline = DDPMPipeline(unet=model, scheduler=noise_scheduler)
-            args.num_inference_steps = args.num_train_timesteps
         
+        pipeline = DDIMPipeline(unet=model, scheduler=noise_scheduler)
+
         # Set progress to false
         pipeline.set_progress_bar_config(disable=True)
         
@@ -229,15 +184,6 @@ for epoch in range(args.num_epochs):
         os.makedirs(output_dir, exist_ok=True)
         # List the files in the output folder
         num_exist_images = len(os.listdir(output_dir))
-
-        # Initialize the pipeline
-        if args.pipeline == "ddim":
-            pipeline = DDIMPipeline(unet=model, scheduler=noise_scheduler)
-        elif args.pipeline == "mddim":
-            pipeline = TaskDMPipeline(unet=model, scheduler=noise_scheduler, labels=args.labels)
-        else:
-            pipeline = DDPMPipeline(unet=model, scheduler=noise_scheduler)
-            args.num_inference_steps = args.num_train_timesteps
 
         # Set progress to false
         pipeline.set_progress_bar_config(disable=True)
