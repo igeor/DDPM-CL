@@ -2,15 +2,17 @@ import os
 import torch
 import torch.nn.functional as F
 from torchvision import transforms
+
 from diffusers.utils import make_image_grid
 from diffusers import UNet2DModel, DDIMPipeline, DDPMScheduler, DDPMPipeline
 from diffusers.optimization import get_cosine_schedule_with_warmup
+
 from tqdm.auto import tqdm
 
+from pipelines import DDIMPipeline as TaskDMPipeline
 from dataset import init_dataset
 from utils import get_preprocess_function, get_task_noise
 from args import parse_args
-from pipelines import DDIMPipeline as TaskDMPipeline
 
 """ 
 Initialize the training script
@@ -100,45 +102,45 @@ for epoch in range(args.num_epochs):
     for batch_idx, (clean_images, clean_images_labels) in enumerate(train_dataloader):
         # Move the images to the device
         clean_images = clean_images.to(args.device)
+
         # Get the batch size
         bs = clean_images.shape[0]
 
         # Sample noise to add to the images
         noise = torch.randn(clean_images.shape).to(args.device)
 
-        # Latent Space Initialization (v2)
-        # Sample task noise to add to the images
-        if args.mask == "v2":
-            noise = get_task_noise(clean_images.shape, clean_images_labels).to(args.device)
+        # # Latent Space Initialization (v2)
+        # # Sample task noise to add to the images
+        # if args.mask == "v2":
+        #     noise = get_task_noise(clean_images.shape, clean_images_labels).to(args.device)
             
-        # By default, the mask is a tensor of ones (default value is None)
-        # This means that the loss is not affected by the mask
-        mask = torch.ones(clean_images.shape[0]).to(args.device)
+        # # By default, the mask is a tensor of ones (default value is None)
+        # # This means that the loss is not affected by the mask
+        # mask = torch.ones(clean_images.shape[0]).to(args.device)
         
         # Latent Space Initialization (v1)
         # Create a mask with 1 for the images of the batch
         #  the condition is met and 0 otherwise
-        if args.mask == "v1":
+        # if args.mask == "v1":
             
-            # get the indices of clean_images_labels that are equal to 0 
-            task_0_idxs = torch.where(clean_images_labels == 0)[0]
-            noise_task_0 = noise[task_0_idxs]
-            ones_task_0 = torch.ones_like(noise_task_0)
-            mask_0 = torch.sum(noise_task_0 * ones_task_0, dim=(1, 2, 3))
-            mask_0 = torch.relu(mask_0) / mask_0
+        #     # get the indices of clean_images_labels that are equal to 0 
+        #     task_0_idxs = torch.where(clean_images_labels == 0)[0]
+        #     noise_task_0 = noise[task_0_idxs]
+        #     ones_task_0 = torch.ones_like(noise_task_0)
+        #     # mask_0 = torch.sum(noise_task_0 * ones_task_0, dim=(1, 2, 3))
+        #     # mask_0 = torch.relu(mask_0) / mask_0
+        #     mask_0 = (torch.sum(noise_task_0 * ones_task_0, dim=(1, 2, 3)) > 0).float()
 
-            task_1_idxs = torch.where(clean_images_labels == 1)[0]
-            noise_task_1 = noise[task_1_idxs]
-            ones_task_1 = torch.ones_like(noise_task_1)
-            mask_1 = - torch.sum(noise_task_1 * ones_task_1, dim=(1, 2, 3))
-            mask_1 = torch.relu(mask_1) / mask_1
+        #     task_1_idxs = torch.where(clean_images_labels == 1)[0]
+        #     noise_task_1 = noise[task_1_idxs]
+        #     ones_task_1 = torch.ones_like(noise_task_1)
+        #     # mask_1 = - torch.sum(noise_task_1 * ones_task_1, dim=(1, 2, 3))
+        #     # mask_1 = torch.relu(mask_1) / mask_1
+        #     mask_1 = (torch.sum(noise_task_1 * ones_task_1, dim=(1, 2, 3)) < 0).float()
 
-            mask = torch.ones((bs, )).to(args.device)
-            mask[task_0_idxs] = mask_0
-            mask[task_1_idxs] = mask_1
-
-        # Get the batch size
-        bs = clean_images.shape[0]
+        #     mask = torch.ones((bs, )).to(args.device)
+        #     mask[task_0_idxs] = mask_0
+        #     mask[task_1_idxs] = mask_1
 
         # Sample a random timestep for each image
         timesteps = torch.randint(
@@ -153,11 +155,13 @@ for epoch in range(args.num_epochs):
         # Predict the noise residual
         noise_pred = model(noisy_images, timesteps, return_dict=False)[0]
         
-        # If the mask is None (default), the loss is not affected by the mask
-        # because the mask is a tensor of ones
-        mse_loss = F.mse_loss(noise, noise_pred, reduction="none")
-        mse_loss_per_batch = torch.mean(mse_loss, dim=(1, 2, 3))
-        loss = torch.mean(mse_loss_per_batch * mask)
+        loss = F.mse_loss(noise, noise_pred)
+
+        # # If the mask is None (default), the loss is not affected by the mask
+        # # because the mask is a tensor of ones
+        # mse_loss = F.mse_loss(noise, noise_pred, reduction="none")
+        # mse_loss_per_batch = torch.mean(mse_loss, dim=(1, 2, 3))
+        # loss = torch.mean(mse_loss_per_batch * mask)
 
         # Backpropagate the loss
         loss.backward()
@@ -189,10 +193,11 @@ for epoch in range(args.num_epochs):
     if (epoch + 1) % args.sample_image_epochs == 0:
             
         # Initialize the pipeline
-        pipeline = DDIMPipeline(unet=model, scheduler=noise_scheduler)
-        if args.mask is not None:
+        if args.pipeline == "ddim":
+            pipeline = DDIMPipeline(unet=model, scheduler=noise_scheduler)
+        elif args.pipeline == "mddim":
             pipeline = TaskDMPipeline(unet=model, scheduler=noise_scheduler, labels=args.labels)
-        if args.pipeline == "ddpm":
+        else:
             pipeline = DDPMPipeline(unet=model, scheduler=noise_scheduler)
             args.num_inference_steps = args.num_train_timesteps
         
@@ -226,12 +231,16 @@ for epoch in range(args.num_epochs):
         num_exist_images = len(os.listdir(output_dir))
 
         # Initialize the pipeline
-        pipeline = DDIMPipeline(unet=model, scheduler=noise_scheduler)
-        if args.mask is not None:
+        if args.pipeline == "ddim":
+            pipeline = DDIMPipeline(unet=model, scheduler=noise_scheduler)
+        elif args.pipeline == "mddim":
             pipeline = TaskDMPipeline(unet=model, scheduler=noise_scheduler, labels=args.labels)
-        if args.pipeline == "ddpm":
+        else:
             pipeline = DDPMPipeline(unet=model, scheduler=noise_scheduler)
             args.num_inference_steps = args.num_train_timesteps
+
+        # Set progress to false
+        pipeline.set_progress_bar_config(disable=True)
 
         # Initialize tqdm bar
         pbar = tqdm(total=args.n_fake_images, desc=f"Generating fake images for epoch {epoch + 1}...")
