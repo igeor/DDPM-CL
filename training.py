@@ -1,17 +1,15 @@
 import os
 import torch
 import torch.nn.functional as F
-from torchvision import transforms
 
 from diffusers.utils import make_image_grid
-from diffusers import UNet2DModel, DDIMPipeline, DDPMScheduler, DDPMPipeline
+from diffusers import UNet2DModel, DDIMPipeline, DDPMScheduler
 from diffusers.optimization import get_cosine_schedule_with_warmup
 
 from tqdm.auto import tqdm
 
-from pipelines import DDIMPipeline as TaskDMPipeline
 from dataset import init_dataset
-from utils import get_preprocess_function, get_task_noise
+from utils import get_preprocess_function
 from args import parse_args
 
 """ 
