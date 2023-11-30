@@ -8,14 +8,15 @@ from diffusers.optimization import get_cosine_schedule_with_warmup
 
 from tqdm.auto import tqdm
 
+from pipelines import TS_DDIMPipeline
 from dataset import init_dataset
-from utils import get_preprocess_function
-from args import parse_args
+from utils import get_preprocess_function, sample_task_noise
+from args import parse_train_args
 
 """ 
 Initialize the training script
 """
-args = parse_args()
+args = parse_train_args()
 
 # Initialize the output directory
 os.makedirs(args.output_dir, exist_ok=True)
@@ -83,7 +84,6 @@ if args.pretrained_model_dir is not None:
     noise_scheduler = DDPMScheduler.from_pretrained(
         args.pretrained_model_dir, subfolder="scheduler", use_safetensors=True)
 
-
 """ 
 The training loop
 """
@@ -106,6 +106,15 @@ for epoch in range(args.num_epochs):
 
         # Sample noise to add to the images
         noise = torch.randn(clean_images.shape).to(args.device)
+
+        if args.mask is not None:
+            # Sample task-specific noise to add to the images
+            noise = sample_task_noise(
+                noise_shape=noise.shape,
+                labels=clean_images_labels,
+                device=args.device,
+                dtype=noise.dtype
+            )
 
         # Sample a random timestep for each image
         timesteps = torch.randint(
@@ -152,21 +161,22 @@ for epoch in range(args.num_epochs):
     # Evaluate the model 
     if (epoch + 1) % args.sample_image_epochs == 0:
         
+        # Define the pipeline
         pipeline = DDIMPipeline(unet=model, scheduler=noise_scheduler)
-
+        if args.mask is not None:
+            pipeline = TS_DDIMPipeline(unet=model, scheduler=noise_scheduler, labels=args.labels)
         # Set progress to false
         pipeline.set_progress_bar_config(disable=True)
-        
+
         with torch.no_grad():
             # Generate images
             images = pipeline(
                 batch_size=args.eval_batch_size,
-                generator=torch.manual_seed(args.gen_seed),
                 num_inference_steps=args.num_inference_steps,
             ).images
     
         # Save the images
-        image_grid = make_image_grid(images[:16], rows=4, cols=4)
+        image_grid = make_image_grid(images[:64], rows=8, cols=8)
         image_grid.save(f"{eval_dir}/{epoch + 1}.png")
 
     # Save the model
@@ -183,9 +193,13 @@ for epoch in range(args.num_epochs):
         # List the files in the output folder
         num_exist_images = len(os.listdir(output_dir))
 
+        # Define the pipeline
+        pipeline = DDIMPipeline(unet=model, scheduler=noise_scheduler)
+        if args.mask is not None:
+            pipeline = TS_DDIMPipeline(unet=model, scheduler=noise_scheduler, labels=args.labels)
         # Set progress to false
         pipeline.set_progress_bar_config(disable=True)
-
+        
         # Initialize tqdm bar
         pbar = tqdm(total=args.n_fake_images, desc=f"Generating fake images for epoch {epoch + 1}...")
         # Generate images in batches

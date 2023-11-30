@@ -1,6 +1,6 @@
 import torch 
+from diffusers.utils.torch_utils import randn_tensor
 from torchvision import transforms as transforms
-from torchmetrics.image.fid import FrechetInceptionDistance
 from PIL import Image
 
 def interpolate(batch, mode='RGB', size=299):
@@ -59,43 +59,49 @@ def get_preprocess_function(dataset_name, flip=False, rotate=False):
 
     return preprocess
 
-def get_task_labels(batch_size, num_tasks):
+def get_label_vector(batch_size, labels):
     """
-    Generate labels for the tasks.
+    Generate a batch of labels given a list of labels.
+    Function will repeat the labels to match the batch size.
 
     Args:
-        batch_size (int): The total number of images in a batch.
-        num_tasks (int): The number of tasks.
+        batch_size (int): The total size of the batch.
+        labels (list): The list of labels for each task.
 
     Returns:
-        torch.Tensor: A tensor containing the labels for each image in the batch.
+        torch.Tensor: The concatenated label vector for all tasks in the batch.
     """
-    # Get the number of images per task
-    num_imgs_per_task = batch_size // num_tasks
-    # Initialize the labels which will be used to get the task noise
-    labels = torch.zeros(batch_size)
-    # Create equal amount of labels for each task
-    for i in range(num_tasks):
-        labels[i * num_imgs_per_task : (i + 1) * num_imgs_per_task] = i
-    return labels
+    n = batch_size // len(labels)
+    labels_to_return = [torch.ones(n) * label for label in labels]
+    return torch.cat(labels_to_return[:batch_size], dim=0)
 
-
-def get_task_noise(num_imgs, size, label):
+        
+def sample_task_noise(noise_shape, labels, generator=None, device=None, dtype=None):
     """
-    Generate task-specific noise for each image in a batch.
+    Sample task-specific noise based on labels and condition vector.
 
     Args:
-        num_imgs (int): Number of images in the batch.
-        size (tuple): Size of each image in the batch.
-        label (int): Task label for which the noise is generated.
+        noise_shape (tuple): The shape of the noise tensor to generate.
+        labels (list): The labels corresponding to each noise sample.
+        generator (torch.Generator, optional): Generator object for random number generation. Defaults to None.
+        device (torch.device, optional): The device to place the generated noise tensor on. Defaults to None.
+        dtype (torch.dtype, optional): The data type of the generated noise tensor. Defaults to None.
 
     Returns:
-        torch.Tensor: Task-specific noise tensor of shape (num_imgs, *size).
+        torch.Tensor: The generated task-specific noise tensor.
     """
-    
+
+    # Make sure that the number of labels is equal to the number of noise samples
+    assert noise_shape[0] == len(labels)
+      
     # Initialize the noise to return
-    output_size = (num_imgs,) + size
-    noise_to_return = torch.randn(size=output_size)
+    noise_to_return = randn_tensor(noise_shape, 
+                                   generator=generator,
+                                   device=device, dtype=dtype)
+    
+    # If there are no labels, return the noise
+    if labels == []: 
+        return noise_to_return
 
     # Initialize the condition vector
     v = torch.ones_like(noise_to_return[0])
@@ -107,19 +113,13 @@ def get_task_noise(num_imgs, size, label):
         # the noise and the condition vector
         m = torch.sum(i_noise * v)
 
-        # For different tasks, the condition is different
-        if label == 0:
-            # For task 0, the condition is m > 0
-            while m < 0: 
-                i_noise = torch.randn_like(i_noise)
-                m = torch.sum(i_noise * v) 
-        elif label == 1:
-            # For task 1, the condition is m < 0
-            while m > 0:
-                i_noise = torch.randn_like(i_noise)
-                m = torch.sum(i_noise * v)
+        # Get the label of the image
+        label = labels[noise_idx]
 
-        # Add the task noise to the noise_to_return
-        noise_to_return[noise_idx] = i_noise
-    
+        # For different tasks, the condition is different
+        if (label == 0 and m < 0) or \
+            (label == 1 and m > 0): 
+            noise_to_return[noise_idx] = - i_noise
+
+    # Return the noise
     return noise_to_return

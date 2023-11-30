@@ -3,8 +3,7 @@ import argparse
 def list_of_strings(arg): return arg.split(',')
 def list_of_ints(arg): return [int(x) for x in arg.split(',')]
 
-def parse_args():
-    # Create an argument parser
+def parse_train_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--device", default="cuda:1", help="Device to use (e.g., 'cuda' or 'cpu')")
 
@@ -56,5 +55,22 @@ def parse_args():
     parser.add_argument("--show_gen_progress", action="store_true", help="Show generation progress")
     parser.add_argument('--gen_seed', type=int, default=0, help='Seed for generation')
 
-    args = parser.parse_args()
-    return args
+    return parser.parse_args()
+
+
+
+def parse_gen_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--device", default="cuda:1", help="Device to use (e.g., 'cuda' or 'cpu')")
+
+    parser.add_argument("--pretrained_model_dir", default=None, help="Path to the pretrained model directory")
+    parser.add_argument("--pipeline", default="ddim", help="The pipeline type, 'ddpm' or 'ddim'")
+    parser.add_argument("--num_inference_steps", type=int, default=100, help="The pipeline type, 'ddpm' or 'ddim'")
+    parser.add_argument("--labels", type=list_of_ints, default=[0, 1], help="Labels to train on")
+    parser.add_argument("--batch_size", type=int, default=128, help="Batch size for Generation")
+    parser.add_argument("--n_images_to_generate", type=int, default=10_000, help="Number of fake images to generate")
+    parser.add_argument("--folder_name", default="ts_ddim_fake_images", help="Output folder name")
+    parser.add_argument("--show_gen_progress", action="store_true", help="Show generation progress")
+
+
+    return parser.parse_args()
