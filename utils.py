@@ -1,5 +1,6 @@
 import torch 
 from diffusers.utils.torch_utils import randn_tensor
+from diffusers.optimization import get_cosine_schedule_with_warmup, get_constant_schedule, get_constant_schedule_with_warmup
 from torchvision import transforms as transforms
 from PIL import Image
 
@@ -123,3 +124,39 @@ def sample_task_noise(noise_shape, labels, generator=None, device=None, dtype=No
 
     # Return the noise
     return noise_to_return
+
+
+def get_lr_scheduler(scheduler_name, optimizer, num_warm_up_steps=None, num_steps=None):
+    """
+    Get the learning rate scheduler based on the scheduler name.
+    Args:
+        scheduler_name (str): Name of the scheduler.
+        optimizer: The optimizer for which the learning rate schedule is generated.
+            Options are: 'const', 'const_warm', 'cos', 'cos_warm'.
+        num_warm_up_steps (int, optional): Number of warm-up steps for the learning rate schedule.
+            Applicable only for the 'const_warm' and 'cos_warm' learning rate schedules.
+        num_steps (int, optional): Total number of training steps.
+            Applicable only for the 'cos_warm' learning rate scheduler.
+
+    Returns:
+        Learning rate schedule based on the scheduler name.
+
+    Raises:
+        NotImplementedError: If the scheduler name is not supported.
+    """
+
+    if scheduler_name == "const":
+        return get_constant_schedule(optimizer)
+    elif scheduler_name == "const_warm":
+        return get_constant_schedule_with_warmup(
+            optimizer=optimizer,
+            num_warmup_steps=num_warm_up_steps
+        )
+    elif scheduler_name == "cos_warm":
+        return get_cosine_schedule_with_warmup(
+            optimizer=optimizer,
+            num_warmup_steps=num_warm_up_steps,
+            num_training_steps=num_steps
+        )
+    else:
+        raise NotImplementedError

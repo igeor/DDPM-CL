@@ -4,13 +4,12 @@ import torch.nn.functional as F
 
 from diffusers.utils import make_image_grid
 from diffusers import UNet2DModel, DDIMPipeline, DDPMScheduler
-from diffusers.optimization import get_cosine_schedule_with_warmup
 
 from tqdm.auto import tqdm
 
 from pipelines import TS_DDIMPipeline
 from dataset import init_dataset
-from utils import get_preprocess_function, sample_task_noise
+from utils import get_preprocess_function, sample_task_noise, get_lr_scheduler
 from args import parse_train_args
 
 """ 
@@ -65,10 +64,11 @@ model = model.to(args.device)
 optimizer = torch.optim.AdamW(model.parameters(), lr=args.learning_rate)
 
 # Define the learning rate scheduler
-lr_scheduler = get_cosine_schedule_with_warmup(
+lr_scheduler =  get_lr_scheduler(
+    scheduler_name=args.lr_scheduler, 
     optimizer=optimizer,
-    num_warmup_steps=args.lr_warmup_steps,
-    num_training_steps=(len(train_dataloader) * args.num_epochs),
+    num_warm_up_steps=args.lr_warmup_steps, 
+    num_steps=args.num_epochs * len(train_dataloader)
 )
 
 # Define the noise scheduler
@@ -142,7 +142,6 @@ for epoch in range(args.num_epochs):
         lr_scheduler.step()
         # Zero the gradients
         optimizer.zero_grad()
-
         # Log the loss and learning rate
         train_log['loss'] += [loss.item()]
         train_log['lr'] += [lr_scheduler.get_last_lr()[0]]

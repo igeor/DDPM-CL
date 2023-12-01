@@ -42,6 +42,7 @@ def parse_train_args():
     parser.add_argument("--eval_batch_size", type=int, default=16, help="Batch size for evaluation")
     parser.add_argument("--gradient_accumulation_steps", type=int, default=1, help="Number of gradient accumulation steps")
     parser.add_argument("--learning_rate", type=float, default=1e-4, help="Learning rate")
+    parser.add_argument("--lr_scheduler", type=str, default="cos_warm", help="Apply learning rate schedule. 'const', 'const_warm', 'cos', or 'cos_warm'")
     parser.add_argument("--lr_warmup_steps", type=int, default=5, help="Number of learning rate warmup steps")
 
     parser.add_argument("--pretrained_model_dir", default=None, help="Path to the pretrained model directory")
@@ -52,7 +53,6 @@ def parse_train_args():
     parser.add_argument("--output_dir", default="experiment", help="Output directory")
 
     parser.add_argument("--mixed_precision", default="fp16", help="Mixed precision mode, 'no' for float32, 'fp16' for automatic mixed precision")
-    parser.add_argument("--show_gen_progress", action="store_true", help="Show generation progress")
     parser.add_argument('--gen_seed', type=int, default=0, help='Seed for generation')
 
     return parser.parse_args()
