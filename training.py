@@ -165,8 +165,9 @@ for epoch in range(args.num_epochs):
     if (epoch + 1) % args.sample_image_epochs == 0:
         
         # Define the pipeline
-        pipeline = DDIMPipeline(unet=model, scheduler=noise_scheduler)
-        if args.mask is not None:
+        if args.pipeline == "ddim":
+            pipeline = DDIMPipeline(unet=model, scheduler=noise_scheduler)
+        elif args.pipeline == "ts_ddim":
             pipeline = TS_DDIMPipeline(unet=model, scheduler=noise_scheduler, labels=args.labels)
         # Set progress to false
         pipeline.set_progress_bar_config(disable=True)
@@ -197,8 +198,9 @@ for epoch in range(args.num_epochs):
         num_exist_images = len(os.listdir(output_dir))
 
         # Define the pipeline
-        pipeline = DDIMPipeline(unet=model, scheduler=noise_scheduler)
-        if args.mask is not None:
+        if args.pipeline == "ddim":
+            pipeline = DDIMPipeline(unet=model, scheduler=noise_scheduler)
+        elif args.pipeline == "ts_ddim":
             pipeline = TS_DDIMPipeline(unet=model, scheduler=noise_scheduler, labels=args.labels)
         # Set progress to false
         pipeline.set_progress_bar_config(disable=True)

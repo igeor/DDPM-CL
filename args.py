@@ -21,7 +21,7 @@ def parse_train_args():
     parser.add_argument("--mask", type=str, default=None, help="The type of the mask")
     parser.add_argument("--num_tasks", type=int, default=None, help="The number of the tasks")
 
-    parser.add_argument("--pipeline", default="ddim", help="The pipeline type, 'ddpm' or 'ddim'")
+    parser.add_argument("--pipeline", default="ddim", help="The pipeline type, 'ddpm', 'ddim' or 'ts_ddim'. 'ts_ddim' requires the labels argument")
     parser.add_argument("--num_inference_steps", type=int, default=100, help="The pipeline type, 'ddpm' or 'ddim'")
 
     parser.add_argument("--image_size", type=int, default=32, help="Image size")
@@ -64,7 +64,7 @@ def parse_gen_args():
     parser.add_argument("--device", default="cuda:1", help="Device to use (e.g., 'cuda' or 'cpu')")
 
     parser.add_argument("--pretrained_model_dir", default=None, help="Path to the pretrained model directory")
-    parser.add_argument("--pipeline", default="ddim", help="The pipeline type, 'ddpm' or 'ddim'")
+    parser.add_argument("--pipeline", default="ddim", help="The pipeline type, 'ddpm', 'ddim' or 'ts_ddim'. 'ts_ddim' requires the labels argument")
     parser.add_argument("--num_inference_steps", type=int, default=100, help="The pipeline type, 'ddpm' or 'ddim'")
     parser.add_argument("--labels", type=list_of_ints, default=[0, 1], help="Labels to train on")
     parser.add_argument("--batch_size", type=int, default=128, help="Batch size for Generation")
