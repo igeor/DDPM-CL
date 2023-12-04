@@ -8,6 +8,10 @@ from args import parse_gen_args
 
 args = parse_gen_args()
 
+if args.seed is not None:
+    torch.manual_seed(args.seed)
+    torch.cuda.manual_seed(args.seed)
+
 # Load the UNet model
 model = UNet2DModel.from_pretrained(os.path.join(args.pretrained_model_dir, "unet")).to(args.device)
 

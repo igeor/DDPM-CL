@@ -17,6 +17,10 @@ Initialize the training script
 """
 args = parse_train_args()
 
+if args.seed is not None:
+    torch.manual_seed(args.seed)
+    torch.cuda.manual_seed(args.seed)
+
 # Initialize the output directory
 os.makedirs(args.output_dir, exist_ok=True)
 

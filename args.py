@@ -53,7 +53,7 @@ def parse_train_args():
     parser.add_argument("--output_dir", default="experiment", help="Output directory")
 
     parser.add_argument("--mixed_precision", default="fp16", help="Mixed precision mode, 'no' for float32, 'fp16' for automatic mixed precision")
-    parser.add_argument('--gen_seed', type=int, default=0, help='Seed for generation')
+    parser.add_argument('--seed', type=int, default=0, help='Seed for generation')
 
     return parser.parse_args()
 
@@ -71,6 +71,7 @@ def parse_gen_args():
     parser.add_argument("--n_images_to_generate", type=int, default=10_000, help="Number of fake images to generate")
     parser.add_argument("--folder_name", default="ts_ddim_fake_images", help="Output folder name")
     parser.add_argument("--show_gen_progress", action="store_true", help="Show generation progress")
+    parser.add_argument('--seed', type=int, default=0, help='Seed for generation')
 
 
     return parser.parse_args()
