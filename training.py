@@ -188,7 +188,12 @@ for epoch in range(args.num_epochs):
         pipeline.save_pretrained(f'{args.output_dir}/epoch-{epoch + 1}')
     
     # Generate samples from the model
-    if (epoch + 1) % args.generate_image_epochs == 0 or epoch == args.num_epochs - 1:
+    # if it is the last epoch 
+    if (epoch + 1) == args.num_epochs:
+
+        # Reset the manual seed
+        torch.manual_seed(args.seed)
+        torch.cuda.manual_seed(args.seed)
 
         # Initialize output folder
         output_dir = f"{args.output_dir}/epoch-{epoch + 1}/{args.pipeline}_fake_images"
@@ -202,6 +207,7 @@ for epoch in range(args.num_epochs):
             pipeline = DDIMPipeline(unet=model, scheduler=noise_scheduler)
         elif args.pipeline == "ts_ddim":
             pipeline = TS_DDIMPipeline(unet=model, scheduler=noise_scheduler, labels=args.labels)
+        
         # Set progress to false
         pipeline.set_progress_bar_config(disable=True)
         
@@ -209,6 +215,7 @@ for epoch in range(args.num_epochs):
         pbar = tqdm(total=args.n_fake_images, desc=f"Generating fake images for epoch {epoch + 1}...")
         # Generate images in batches
         for b_idx in range(0, args.n_fake_images, args.eval_batch_size):
+            
             # (Inverse Diffusion Process) Sample fake images from random noise
             # The default pipeline output type is `List[PIL.Image]`
             with torch.no_grad():
