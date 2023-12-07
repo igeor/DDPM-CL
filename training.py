@@ -21,6 +21,10 @@ if args.seed is not None:
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed(args.seed)
 
+# Print the arguments
+print("Experiment arguments:")
+print(args)
+
 # Initialize the output directory
 os.makedirs(args.output_dir, exist_ok=True)
 
@@ -108,22 +112,24 @@ for epoch in range(args.num_epochs):
         # Get the batch size
         bs = clean_images.shape[0]
 
+        # Sample a random timestep for each image
+        timesteps = torch.randint(
+            0, noise_scheduler.config.num_train_timesteps, (bs,), device=args.device
+        ).long()
+
         # Sample noise to add to the images
         noise = torch.randn(clean_images.shape).to(args.device)
 
         if args.mask is not None:
             # Sample task-specific noise to add to the images
             noise = sample_task_noise(
-                noise_shape=noise.shape,
+                noise_shape=clean_images.shape,
                 labels=clean_images_labels,
+                timesteps=timesteps,
+                t_thres=args.t_thres,
                 device=args.device,
                 dtype=noise.dtype
             )
-
-        # Sample a random timestep for each image
-        timesteps = torch.randint(
-            0, noise_scheduler.config.num_train_timesteps, (bs,), device=args.device
-        ).long()
 
         # Forward Diffusion Process
         # Add noise to the clean images according to the noise magnitude at each timestep

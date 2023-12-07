@@ -60,30 +60,33 @@ def get_preprocess_function(dataset_name, flip=False, rotate=False):
 
     return preprocess
 
-def get_label_vector(batch_size, labels):
+def create_repeated_values_vector(int_list, size):
     """
-    Generate a batch of labels given a list of labels.
-    Function will repeat the labels to match the batch size.
+    Create a vector of repeated values based on the given integer list and size.
 
     Args:
-        batch_size (int): The total size of the batch.
-        labels (list): The list of labels for each task.
+        int_list (list): The list of integers to repeat.
+        size (int): The desired size of the resulting vector.
 
     Returns:
-        torch.Tensor: The concatenated label vector for all tasks in the batch.
+        torch.Tensor: The vector of repeated values.
     """
-    n = batch_size // len(labels)
-    labels_to_return = [torch.ones(n) * label for label in labels]
-    return torch.cat(labels_to_return[:batch_size], dim=0)
+    repeat_times = size // len(int_list)
+    remainder = size % len(int_list)
+    repeated_list = torch.repeat_interleave(torch.tensor(int_list), repeat_times)
+    remainder_list = torch.repeat_interleave(torch.tensor(int_list[:remainder]), 1)
+    return torch.cat((repeated_list, remainder_list))
 
         
-def sample_task_noise(noise_shape, labels, generator=None, device=None, dtype=None):
+def sample_task_noise(noise_shape, labels, timesteps, t_thres=1000, generator=None, device=None, dtype=None):
     """
     Sample task-specific noise based on labels and condition vector.
 
     Args:
         noise_shape (tuple): The shape of the noise tensor to generate.
         labels (list): The labels corresponding to each noise sample.
+        timesteps (torch.Tensor): The timestep for each noise sample.
+        t_thres (int, optional): The timestep threshold for the task-specific noise. Defaults to 1000.
         generator (torch.Generator, optional): Generator object for random number generation. Defaults to None.
         device (torch.device, optional): The device to place the generated noise tensor on. Defaults to None.
         dtype (torch.dtype, optional): The data type of the generated noise tensor. Defaults to None.
@@ -94,6 +97,8 @@ def sample_task_noise(noise_shape, labels, generator=None, device=None, dtype=No
 
     # Make sure that the number of labels is equal to the number of noise samples
     assert noise_shape[0] == len(labels)
+    # Make sure that the number of timesteps is equal to the number of noise samples
+    assert noise_shape[0] == len(timesteps)
       
     # Initialize the noise to return
     noise_to_return = randn_tensor(noise_shape, 
@@ -117,10 +122,14 @@ def sample_task_noise(noise_shape, labels, generator=None, device=None, dtype=No
         # Get the label of the image
         label = labels[noise_idx]
 
-        # For different tasks, the condition is different
-        if (label == 0 and m < 0) or \
-            (label == 1 and m > 0): 
-            noise_to_return[noise_idx] = - i_noise
+        # Get the timestep of the image
+        t = timesteps[noise_idx]
+
+        if t <= t_thres:
+            # For different tasks, the condition is different
+            if (label == 0 and m < 0) or \
+                (label == 1 and m > 0): 
+                noise_to_return[noise_idx] = - i_noise
 
     # Return the noise
     return noise_to_return

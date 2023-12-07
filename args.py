@@ -19,7 +19,7 @@ def parse_train_args():
     parser.add_argument("--beta_end", type=float, default=0.02, help="Number of training timesteps")
     parser.add_argument("--beta_schedule", default="squaredcos_cap_v2", help="Number of training timesteps")
     parser.add_argument("--mask", type=str, default=None, help="The type of the mask")
-    parser.add_argument("--num_tasks", type=int, default=None, help="The number of the tasks")
+    parser.add_argument("--t_thres", type=int, default=1000, help="The threshold for the timesteps to apply the task-specific noise")
 
     parser.add_argument("--pipeline", default="ddim", help="The pipeline type, 'ddpm', 'ddim' or 'ts_ddim'. 'ts_ddim' requires the labels argument")
     parser.add_argument("--num_inference_steps", type=int, default=100, help="The pipeline type, 'ddpm' or 'ddim'")
@@ -34,7 +34,7 @@ def parse_train_args():
                         default=["DownBlock2D",  "DownBlock2D","DownBlock2D","DownBlock2D","AttnDownBlock2D","DownBlock2D"], 
                         help="The type of the downsampling block")
     parser.add_argument("--up_block_types", type=list_of_strings,
-                        default=["UpBlock2D", "UpBlock2D", "UpBlock2D", "UpBlock2D", "AttnUpBlock2D", "UpBlock2D"],
+                        default=["UpBlock2D", "AttnUpBlock2D", "UpBlock2D", "UpBlock2D", "UpBlock2D", "UpBlock2D"],
                         help="The type of the upsampling block")
 
     parser.add_argument("--num_epochs", type=int, default=100, help="Number of training epochs")

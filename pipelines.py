@@ -7,7 +7,7 @@ from diffusers.pipelines.pipeline_utils import DiffusionPipeline, ImagePipelineO
 
 from diffusers.schedulers import DDIMScheduler
 
-from utils import sample_task_noise, get_label_vector
+from utils import sample_task_noise, create_repeated_values_vector
 
 
 class TS_DDIMPipeline(DiffusionPipeline):
@@ -123,10 +123,16 @@ class TS_DDIMPipeline(DiffusionPipeline):
 		image = randn_tensor(image_shape, generator=generator, device=self._execution_device, dtype=self.unet.dtype)
 
 		if self.labels != []:
-			img_labels = get_label_vector(batch_size, labels=self.labels)
+
+			# Create the initial labels vector
+			init_labels = create_repeated_values_vector(int_list=self.labels, size=batch_size)
+			# Create a timestep vector all 0s
+			timesteps = torch.zeros(batch_size, device=self._execution_device, dtype=torch.long)
+			# Sample the task-specific noise
 			image = sample_task_noise(
 				noise_shape=image_shape,
-				labels=img_labels,
+				labels=init_labels,
+				timesteps=timesteps,
 				generator=generator,
 				device=self._execution_device,
 				dtype=self.unet.dtype
