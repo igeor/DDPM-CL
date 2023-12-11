@@ -123,7 +123,7 @@ for epoch in range(args.num_epochs):
         if args.mask is not None:
             # Sample task-specific noise to add to the images
             noise = sample_task_noise(
-                noise_shape=clean_images.shape,
+                noise=noise,
                 labels=clean_images_labels,
                 timesteps=timesteps,
                 t_thres=args.t_thres,
