@@ -78,12 +78,12 @@ def create_repeated_values_vector(int_list, size):
     return torch.cat((repeated_list, remainder_list))
 
         
-def sample_task_noise(noise_shape, labels, timesteps, t_thres=1000, generator=None, device=None, dtype=None):
+def sample_task_noise(sample_noise, labels, timesteps, t_thres=1000, generator=None, device=None, dtype=None):
     """
     Sample task-specific noise based on labels and condition vector.
 
     Args:
-        noise_shape (tuple): The shape of the noise tensor to generate.
+        sample_noise (torch.Tensor): The default noise which needs to be modified based on the labels.
         labels (list): The labels corresponding to each noise sample.
         timesteps (torch.Tensor): The timestep for each noise sample.
         t_thres (int, optional): The timestep threshold for the task-specific noise. Defaults to 1000.
@@ -96,19 +96,13 @@ def sample_task_noise(noise_shape, labels, timesteps, t_thres=1000, generator=No
     """
 
     # Make sure that the number of labels is equal to the number of noise samples
-    assert noise_shape[0] == len(labels)
+    assert sample_noise[0] == len(labels)
     # Make sure that the number of timesteps is equal to the number of noise samples
-    assert noise_shape[0] == len(timesteps)
+    assert sample_noise[0] == len(timesteps)
       
     # Initialize the noise to return
-    noise_to_return = randn_tensor(noise_shape, 
-                                   generator=generator,
-                                   device=device, dtype=dtype)
+    noise_to_return = sample_noise
     
-    # If there are no labels, return the noise
-    if labels == []: 
-        return noise_to_return
-
     # Initialize the condition vector
     v = torch.ones_like(noise_to_return[0])
 
