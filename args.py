@@ -20,6 +20,7 @@ def parse_train_args():
     parser.add_argument("--beta_schedule", default="squaredcos_cap_v2", help="Number of training timesteps")
     parser.add_argument("--mask", type=str, default=None, help="The type of the mask")
     parser.add_argument("--t_thres", type=int, default=1000, help="The threshold for the timesteps to apply the task-specific noise")
+    parser.add_argument("--penalty_weight", type=float, default=0.0, help="The weight for the penalty term. Will be ignored if it is equal to 0.0") 
 
     parser.add_argument("--pipeline", default="ddim", help="The pipeline type, 'ddpm', 'ddim' or 'ts_ddim'. 'ts_ddim' requires the labels argument")
     parser.add_argument("--num_inference_steps", type=int, default=100, help="The pipeline type, 'ddpm' or 'ddim'")

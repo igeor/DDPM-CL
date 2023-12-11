@@ -96,9 +96,9 @@ def sample_task_noise(sample_noise, labels, timesteps, t_thres=1000, generator=N
     """
 
     # Make sure that the number of labels is equal to the number of noise samples
-    assert sample_noise[0] == len(labels)
+    assert sample_noise.shape[0] == len(labels)
     # Make sure that the number of timesteps is equal to the number of noise samples
-    assert sample_noise[0] == len(timesteps)
+    assert sample_noise.shape[0] == len(timesteps)
       
     # Initialize the noise to return
     noise_to_return = sample_noise
@@ -127,6 +127,44 @@ def sample_task_noise(sample_noise, labels, timesteps, t_thres=1000, generator=N
 
     # Return the noise
     return noise_to_return
+
+
+def penalty_loss(pred_noise, labels, timesteps, t_thres=1000):
+    """
+    Compute the penalty loss for the predicted noise based on the given labels and timesteps.
+
+    Args:
+        pred_noise (torch.Tensor): The predicted noise tensor.
+        labels (torch.Tensor): The labels tensor.
+        timesteps (torch.Tensor): The timesteps tensor.
+        t_thres (int, optional): The threshold value for timesteps. Defaults to 1000.
+
+    Returns:
+        torch.Tensor: The computed penalty loss tensor.
+
+    """
+    loss_to_return = torch.zeros(pred_noise.shape[0])
+
+    v = torch.ones_like(pred_noise[0])
+
+    for pred_noise_idx, i_pred_noise in enumerate(pred_noise):
+        
+        # Compute the dot product between 
+        # the noise and the condition vector
+        m = torch.sum(i_pred_noise * v)
+
+        # Get the label and timestep of the corresponding noisy image
+        label = labels[pred_noise_idx]
+        t = timesteps[pred_noise_idx]
+
+        if t >= t_thres:
+            if (label == 0 and m < 0) or (label == 1 and m > 0): 
+                loss_to_return[pred_noise_idx] = -m 
+        else:
+            loss_to_return[pred_noise_idx] = 0
+    
+    # Compute the mean of the loss
+    return torch.mean(loss_to_return)
 
 
 def get_lr_scheduler(scheduler_name, optimizer, num_warm_up_steps=None, num_steps=None):

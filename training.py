@@ -9,7 +9,7 @@ from tqdm.auto import tqdm
 
 from pipelines import TS_DDIMPipeline
 from dataset import init_dataset
-from utils import get_preprocess_function, sample_task_noise, get_lr_scheduler
+from utils import get_preprocess_function, sample_task_noise, get_lr_scheduler, penalty_loss
 from args import parse_train_args
 
 """ 
@@ -123,7 +123,7 @@ for epoch in range(args.num_epochs):
         if args.mask is not None:
             # Sample task-specific noise to add to the images
             noise = sample_task_noise(
-                noise=noise,
+                sample_noise=noise,
                 labels=clean_images_labels,
                 timesteps=timesteps,
                 t_thres=args.t_thres,
@@ -141,6 +141,11 @@ for epoch in range(args.num_epochs):
         
         # Compute the MSE loss between the predicted noise and the actual noise
         loss = F.mse_loss(noise, noise_pred)
+
+        # Compute the penalty loss
+        if args.penalty_weight > 0:
+            penalty = penalty_loss(noise_pred, clean_images_labels, timesteps, t_thres=args.t_thres)
+            loss += args.penalty_weight * penalty
 
         # Backpropagate the loss
         loss.backward()

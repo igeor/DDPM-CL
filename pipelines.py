@@ -130,7 +130,7 @@ class TS_DDIMPipeline(DiffusionPipeline):
 			timesteps = torch.zeros(batch_size, device=self._execution_device, dtype=torch.long)
 			# Sample the task-specific noise
 			image = sample_task_noise(
-				noise_shape=image_shape,
+				sample_noise=image,
 				labels=init_labels,
 				timesteps=timesteps,
 				generator=generator,
