@@ -125,7 +125,7 @@ def sample_task_noise(noise_shape, labels, timesteps, t_thres=1000, generator=No
         # Get the timestep of the image
         t = timesteps[noise_idx]
 
-        if t <= t_thres:
+        if t >= t_thres:
             # For different tasks, the condition is different
             if (label == 0 and m < 0) or \
                 (label == 1 and m > 0): 
