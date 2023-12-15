@@ -50,6 +50,12 @@ def get_preprocess_function(dataset_name, flip=False, rotate=False):
         preprocess = transforms.Compose([
             transforms.Resize((224), antialias=None),
         ])
+    elif dataset_name == 'ImageFolder':
+        preprocess = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Resize((128, 128), antialias=None),
+            transforms.Normalize([0.5], [0.5]), # Convert images from (0,1) to (-1, 1)
+        ])
     else:
         raise NotImplementedError
 

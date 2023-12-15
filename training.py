@@ -8,7 +8,7 @@ from diffusers import UNet2DModel, DDIMPipeline, DDPMScheduler
 from tqdm.auto import tqdm
 
 from pipelines import TS_DDIMPipeline
-from dataset import init_dataset
+from dataset import init_tvision_dataset, init_folder_dataset
 from utils import get_preprocess_function, sample_task_noise, get_lr_scheduler, penalty_loss
 from args import parse_train_args
 
@@ -41,9 +41,13 @@ preprocess = get_preprocess_function(
     args.dataset_name, flip=args.pr_flip, rotate=args.pr_rotate)
 
 # Get the training and test datasets
-trainset, testset = init_dataset(
-    args.dataset_name, dataset_path=args.dataset_path, target_dir=args.target_dir,
-    labels=args.labels, preprocess=preprocess)
+if args.dataset_name == "ImageFolder":
+    trainset = init_folder_dataset(
+        args.dataset_path, labels=args.labels, preprocess=preprocess)
+else:
+    trainset, _ = init_tvision_dataset(
+        args.dataset_name, dataset_path=args.dataset_path, target_dir=args.target_dir,
+        labels=args.labels, preprocess=preprocess)
 
 # Initialize the training dataloader
 train_dataloader = torch.utils.data.DataLoader(
